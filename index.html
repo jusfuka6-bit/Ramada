@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Ramadan 2027 Pro - Live Fix</title>
+    <style>
+        :root {
+            --primary: #00FF88; 
+            --bg-dark: #080C0A;
+            --glass-border: rgba(255, 255, 255, 0.1);
+        }
+
+        * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; user-select: none; }
+
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background-color: var(--bg-dark);
+            color: #ffffff;
+            margin: 0; padding: 0; overflow-x: hidden;
+        }
+
+        /* টেস্ট প্যানেল */
+        #testPanel {
+            background: #1a1a1a; padding: 8px; border-bottom: 2px solid var(--primary);
+            font-size: 11px; text-align: center; position: sticky; top: 0; z-index: 10001;
+        }
+        #testPanel input { background: #000; color: #00FF88; border: 1px solid #444; width: 40px; text-align: center; border-radius: 4px; }
+
+        /* হেডার */
+        .header-container {
+            background: linear-gradient(180deg, #102A1E 0%, #080C0A 100%);
+            padding: 25px 20px 10px; text-align: center;
+        }
+        .header-title {
+            font-size: 24px; font-weight: 800;
+            background: linear-gradient(to right, #00FF88, #60EFFF);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+
+        /* ড্র্যাগেবল পপআপ কন্টেইনার */
+        #mainPopupGroup {
+            display: none;
+            position: fixed;
+            top: 130px; left: 50%;
+            transform: translateX(-50%);
+            z-index: 10000;
+            touch-action: none;
+            width: auto;
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .popup-card {
+            background: rgba(15, 30, 25, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1.5px solid var(--primary);
+            border-radius: 12px;
+            padding: 8px;
+            text-align: center;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.8);
+            min-width: 145px;
+            transition: width 0.3s ease;
+        }
+
+        .single-popup { min-width: 125px; padding: 6px; }
+
+        .drag-handle { 
+            width: 30px; height: 3px; background: #444; 
+            border-radius: 10px; margin: 0 auto 5px; cursor: move; 
+        }
+
+        .label { font-size: 8px; color: var(--primary); text-transform: uppercase; margin-bottom: 2px; }
+        .val { font-size: 13px; font-weight: bold; color: #fff; }
+        .timer-val { font-family: monospace; font-size: 15px; }
+        .status-msg { color: #ff4444 !important; font-size: 10px; line-height: 1.2; }
+
+        /* টেবিল */
+        .content { padding: 0 12px 40px; }
+        .table-wrapper {
+            background: #111; border-radius: 15px; border: 1px solid var(--glass-border); overflow: hidden;
+        }
+        table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        th { background: #1A1A1A; color: var(--primary); padding: 12px 5px; }
+        td { padding: 12px 5px; text-align: center; border-bottom: 1px solid #1a1a1a; }
+        .active-day { background: rgba(0, 255, 136, 0.15) !important; color: var(--primary); font-weight: bold; }
+        
+        ::-webkit-scrollbar { display: none; }
+    </style>
+</head>
+<body oncontextmenu="return false;">
+
+<div id="testPanel">
+    টেস্ট দিন: <input type="number" id="tD" value="1"> | 
+    সময়: <input type="number" id="tH" value="5"> : <input type="number" id="tM" value="20">
+    <button onclick="runTest()" style="background:var(--primary); border:none; padding:3px 8px; border-radius:4px; font-weight:bold; cursor:pointer;">Test</button>
+</div>
+
+<div class="header-container">
+    <div class="header-title">রমজান ক্যালেন্ডার ২০২৭</div>
+    <div style="color:#888; font-size:13px;">মুন্সিরহাট কেন্দ্রীয় জামে মসজিদ</div>
+    <div style="height: 100px;"></div>
+</div>
+
+<div id="mainPopupGroup">
+    <div id="donorPopup" class="popup-card">
+        <div class="drag-handle"></div>
+        <div class="label">আজকের আয়োজনকারী</div>
+        <div id="popDonorName" class="val">---</div>
+    </div>
+
+    <div id="timerPopup" class="popup-card">
+        <div class="drag-handle"></div>
+        <div id="timerLabel" class="label">বাকি সময়</div>
+        <div id="countdownDisplay" class="val timer-val">00:00:00</div>
+    </div>
+</div>
+
+<div class="content">
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>রমজান</th><th>বার</th><th>তারিখ</th><th>সাহরী</th><th>ইফতার</th><th>দাতা</th>
+                </tr>
+            </thead>
+            <tbody id="ramadanTable"></tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    const sahriTimes = ['05:22','05:21','05:21','05:20','05:19','05:19','05:18','05:17','05:16','05:16','05:15','05:14','05:13','05:12','05:11','05:10','05:09','05:08','05:07','05:06','05:05','05:04','05:03','05:02','05:01','05:00','04:59','04:58','04:57','04:56'];
+    const iftarTimes = ['17:48','17:49','17:50','17:50','17:51','17:51','17:52','17:52','17:53','17:54','17:54','17:55','17:55','17:56','17:56','17:57','17:57','17:58','17:58','17:59','17:59','18:00','18:00','18:01','18:01','18:02','18:02','18:03','18:03','18:04'];
+    const days = ['সোম','মঙ্গল','বুধ','বৃহঃ','শুক্র','শনি','রবি','সোম','মঙ্গল','বুধ','বৃহঃ','শুক্র','শনি','রবি','সোম','মঙ্গল','বুধ','বৃহঃ','শুক্র','শনি','রবি','সোম','মঙ্গল','বুধ','বৃহঃ','শুক্র','শনি','রবি','সোম','মঙ্গল'];
+    const dates = ['০৮ ফেব্রু','০৯ ফেব্রু','১০ ফেব্রু','১১ ফেব্রু','১২ ফেব্রু','১৩ ফেব্রু','১৪ ফেব্রু','১৫ ফেব্রু','১৬ ফেব্রু','১৭ ফেব্রু','১৮ ফেব্রু','১৯ ফেব্রু','২০ ফেব্রু','২১ ফেব্রু','২২ ফেব্রু','২৩ ফেব্রু','২৪ ফেব্রু','২৫ ফেব্রু','২৬ ফেব্রু','২৭ ফেব্রু','২৮ ফেব্রু','০১ মার্চ','০২ মার্চ','০৩ মার্চ','০৪ মার্চ','০৫ মার্চ','০৬ মার্চ','০৭ মার্চ','০৮ মার্চ','০৯ মার্চ'];
+    const donors = Array(30).fill("মসজিদ ফান্ড"); 
+
+    function toBangla(s) {
+        const d = {'0':'০','1':'১','2':'২','3':'৩','4':'৪','5':'৫','6':'৬','7':'৭','8':'৮','9':'৯'};
+        return s.toString().replace(/[0-9]/g, w => d[w]);
+    }
+
+    // ড্র্যাগ লজিক
+    const mainGroup = document.getElementById("mainPopupGroup");
+    let isDragging = false, offX, offY;
+    mainGroup.addEventListener("touchstart", (e) => {
+        isDragging = true;
+        const t = e.touches[0];
+        offX = t.clientX - mainGroup.getBoundingClientRect().left;
+        offY = t.clientY - mainGroup.getBoundingClientRect().top;
+    });
+    document.addEventListener("touchmove", (e) => {
+        if (!isDragging) return;
+        const t = e.touches[0];
+        mainGroup.style.left = (t.clientX - offX + (mainGroup.offsetWidth / 2)) + "px";
+        mainGroup.style.top = (t.clientY - offY + (mainGroup.offsetHeight / 2)) + "px";
+        mainGroup.style.transform = "translate(-50%, -50%)";
+    });
+    document.addEventListener("touchend", () => isDragging = false);
+
+    // রিয়েল টাইম ক্লক ম্যানেজমেন্ট
+    let testOffset = 0; // মিলি-সেকেন্ড পার্থক্য
+    let testDayIdx = null;
+
+    function runTest() {
+        const h = parseInt(document.getElementById('tH').value);
+        const m = parseInt(document.getElementById('tM').value);
+        testDayIdx = parseInt(document.getElementById('tD').value) - 1;
+        
+        const now = new Date();
+        const testTime = new Date();
+        testTime.setHours(h, m, 0, 0);
+        
+        testOffset = testTime.getTime() - now.getTime();
+        updateApp();
+    }
+
+    function updateApp() {
+        const now = new Date();
+        // যদি টেস্ট মোড থাকে তবে অফসেট অনুযায়ী সময় বাড়বে
+        const virtualTime = new Date(now.getTime() + testOffset);
+        
+        let h = virtualTime.getHours(), m = virtualTime.getMinutes(), s = virtualTime.getSeconds();
+        let decTime = h + (m/60);
+
+        let idx = -1;
+        if (testDayIdx !== null) {
+            idx = testDayIdx;
+        } else {
+            let d = virtualTime.getDate(), month = virtualTime.getMonth();
+            if (month == 1 && d >= 8) idx = d - 8;
+            else if (month == 2 && d <= 9) idx = d + 20;
+        }
+
+        // টেবিল শুধু একবার রেন্ডার হবে
+        if (document.getElementById('ramadanTable').innerHTML === "") {
+            let html = '';
+            for (let i = 0; i < 30; i++) {
+                html += `<tr id="row-${i}">
+                    <td>${toBangla(i+1)}</td><td>${days[i]}</td><td>${dates[i]}</td>
+                    <td>${toBangla(sahriTimes[i])}</td><td>${toBangla(iftarTimes[i].replace('17:','05:'))}</td>
+                    <td style="color:#60EFFF; font-size:10px;">${donors[i]}</td>
+                </tr>`;
+            }
+            document.getElementById('ramadanTable').innerHTML = html;
+        }
+
+        document.querySelectorAll('tr').forEach(r => r.classList.remove('active-day'));
+        if(idx >= 0) document.getElementById(`row-${idx}`).classList.add('active-day');
+
+        const tp = document.getElementById('timerPopup'), dp = document.getElementById('donorPopup');
+        let timerActive = false, donorActive = false;
+
+        // ১. আয়োজনকারী (১৫:০০ - ২০:০০)
+        if (idx >= 0 && decTime >= 15 && decTime < 20) {
+            donorActive = true;
+            document.getElementById('popDonorName').innerText = donors[idx];
+        }
+
+        // ২. কাউন্টডাউন ও সময় শেষ মেসেজ
+        let target = "";
+        if (decTime >= 2 && decTime <= 6.5) {
+            timerActive = true;
+            target = sahriTimes[idx];
+            document.getElementById('timerLabel').innerText = "সেহরী শেষ হতে";
+        } else if (decTime >= 10 && decTime <= 18.5) {
+            timerActive = true;
+            target = iftarTimes[idx];
+            document.getElementById('timerLabel').innerText = "ইফতার হতে বাকি";
+        }
+
+        if (target) {
+            const [th, tm] = target.split(':').map(Number);
+            let diff = ((th * 3600) + (tm * 60)) - ((h * 3600) + (m * 60) + s);
+            
+            if (diff <= 0) {
+                document.getElementById('countdownDisplay').classList.add('status-msg');
+                document.getElementById('countdownDisplay').innerText = (decTime < 10) ? "সেহরীর সময় শেষ হয়ে গেছে" : "ইফতারের সময় হয়ে গিয়েছে";
+            } else {
+                document.getElementById('countdownDisplay').classList.remove('status-msg');
+                let hh = Math.floor(diff / 3600), mm = Math.floor((diff % 3600) / 60), ss = diff % 60;
+                document.getElementById('countdownDisplay').innerText = `${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')}:${String(ss).padStart(2,'0')}`;
+            }
+        }
+
+        dp.style.display = donorActive ? 'block' : 'none';
+        tp.style.display = timerActive ? 'block' : 'none';
+        mainGroup.style.display = (donorActive || timerActive) ? 'flex' : 'none';
+
+        if (donorActive && timerActive) {
+            dp.classList.remove('single-popup');
+            tp.classList.remove('single-popup');
+        } else {
+            if (donorActive) dp.classList.add('single-popup');
+            if (timerActive) tp.classList.add('single-popup');
+        }
+    }
+
+    setInterval(updateApp, 1000);
+    updateApp();
+</script>
+</body>
+</html>
